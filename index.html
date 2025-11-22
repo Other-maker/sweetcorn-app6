@@ -1334,7 +1334,7 @@ function loadInventoryItemsList() {
 }
 
 function addInventoryItem() {
-    const name = prompt('Inventory Item Name (e.g., Plates, Water Bottle):');
+    const name = prompt('Inventory Item Name (e.g., Plates):');
     if (!name || name.trim() === '') return;
 
     const unit = prompt('Unit of Measurement (e.g., pieces, grams, liters):', 'pieces');
