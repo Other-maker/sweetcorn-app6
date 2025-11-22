@@ -497,7 +497,7 @@
 
                     <label>Payment Status</label>
                     <button class="payment-received-btn" id="paymentReceivedBtn" onclick="togglePaymentReceivedAndSave()">
-                        ⏱ Payment Received
+                        ⏱ Payment Pending
                     </button>
 
                     <button class="btn btn-success" onclick="printBill()" style="background:#06a77d; width:100%; margin-bottom:5px;">🖨️ Print Bill</button>
@@ -929,8 +929,7 @@ let menuItems = JSON.parse(localStorage.getItem('cobCornMenuItems')) || [
     { id: 'item3', name: 'Chatpata Corn', price: 89, category: 'sweet-corn', inventoryId: 'sweet-corn', consumptionPerUnit: 150 },
     { id: 'item4', name: 'Chilli Cheese Corn', price: 89, category: 'sweet-corn', inventoryId: 'sweet-corn', consumptionPerUnit: 150 },
     { id: 'item5', name: 'Cheese Nachos', price: 89, category: 'nachos', inventoryId: 'nachos', consumptionPerUnit: 100 },
-    { id: 'item6', name: 'Nachos Corn Chaat', price: 109, category: 'nachos', inventoryId: 'nachos', consumptionPerUnit: 100 },
-    { id: 'item7', name: '1L Water Bottle', price: 20, category: '1L Water Bottle', inventoryId: 'nachos', consumptionPerUnit: 100 }
+    { id: 'item6', name: 'Nachos Corn Chaat', price: 109, category: 'nachos', inventoryId: 'nachos', consumptionPerUnit: 100 }
 ];
 
 // Enhanced Inventory - NOW includes Cups
@@ -1010,10 +1009,6 @@ function getTodayDateString() {
     return new Date().toLocaleDateString('en-IN');
 }
 
-
-// ============================================
-// CASH TRACKING - FIXED: Only fulfilled orders  
-// ============================================
 
 function updateTodayCash() {
     const today = getTodayDateString();
@@ -1244,22 +1239,87 @@ function editMenuItem(itemId) {
     const item = menuItems.find(i => i.id === itemId);
     if (!item) return;
 
-    const newName = prompt('Item Name:', item.name);
-    if (newName === null) return;
+    // Create enhanced edit dialog with all fields
+    const inventoryOptions = Object.keys(inventory).map(key => 
+        `<option value="${key}" ${item.inventoryId === key ? 'selected' : ''}>${inventory[key].name}</option>`
+    ).join('');
 
-    const newPrice = prompt('Price (₹):', item.price);
-    if (newPrice === null) return;
+    const dialogHTML = `
+        <div style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:10000; display:flex; align-items:center; justify-content:center;" id="editDialog">
+            <div style="background:white; padding:30px; border-radius:10px; max-width:500px; width:90%;">
+                <h3 style="margin:0 0 20px 0; color:#e63946;">✏️ Edit Menu Item</h3>
 
-    const newConsumption = prompt('Consumption Per Unit (grams):', item.consumptionPerUnit);
-    if (newConsumption === null) return;
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:13px;">Item Name</label>
+                    <input type="text" id="editName" value="${item.name}" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; font-size:14px;">
+                </div>
 
-    item.name = newName.trim();
-    item.price = parseFloat(newPrice);
-    item.consumptionPerUnit = parseFloat(newConsumption);
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:13px;">Price (₹)</label>
+                    <input type="number" id="editPrice" value="${item.price}" step="1" min="0" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; font-size:14px;">
+                </div>
+
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:13px;">Consumption Per Unit (grams)</label>
+                    <input type="number" id="editConsumption" value="${item.consumptionPerUnit}" step="1" min="0" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; font-size:14px;">
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:13px;">Linked Inventory Item</label>
+                    <select id="editInventory" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; font-size:14px;">
+                        ${inventoryOptions}
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <button onclick="saveMenuItemEdit('${itemId}')" style="padding:12px; background:#06a77d; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:600; font-size:14px;">
+                        ✓ Save Changes
+                    </button>
+                    <button onclick="closeEditDialog()" style="padding:12px; background:#666; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:600; font-size:14px;">
+                        ✕ Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', dialogHTML);
+}
+
+function saveMenuItemEdit(itemId) {
+    const item = menuItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const newName = document.getElementById('editName').value.trim();
+    const newPrice = parseFloat(document.getElementById('editPrice').value);
+    const newConsumption = parseFloat(document.getElementById('editConsumption').value);
+    const newInventory = document.getElementById('editInventory').value;
+
+    if (!newName || newPrice <= 0 || newConsumption <= 0) {
+        alert('Please enter valid values for all fields');
+        return;
+    }
+
+    item.name = newName;
+    item.price = newPrice;
+    item.consumptionPerUnit = newConsumption;
+    item.inventoryId = newInventory;
+    item.category = newInventory;
 
     localStorage.setItem('cobCornMenuItems', JSON.stringify(menuItems));
     loadMenuItems();
-    showMessage('✓ Item updated', 'success');
+    closeEditDialog();
+    showMessage('✓ Menu item updated successfully', 'success');
+
+    // Sync to Google Sheets if connected
+    if (syncStatus.isConnected && CONFIG.googleAppsScriptURL) {
+        syncMenuToGoogle();
+    }
+}
+
+function closeEditDialog() {
+    const dialog = document.getElementById('editDialog');
+    if (dialog) dialog.remove();
 }
 
 function addMenuItem() {
@@ -1632,7 +1692,7 @@ function togglePaymentReceivedAndSave() {
         saveOrder();
     } else {
         btn.classList.remove('active');
-        btn.innerHTML = '⏱ Payment Received';
+        btn.innerHTML = '✓ Payment Received';
     }
 }
 
@@ -1689,7 +1749,7 @@ function resetForm() {
     const paymentBtn = document.getElementById('paymentReceivedBtn');
     if (paymentBtn) {
         paymentBtn.classList.remove('active');
-        paymentBtn.innerHTML = '⏱ Payment Received';
+        paymentBtn.innerHTML = '⏱ Payment Pending';
     }
 
     updateOrderDisplay();
